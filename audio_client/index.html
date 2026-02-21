@@ -193,7 +193,7 @@
   <div class="card">
     <div class="card-title">Connection</div>
     <div class="row">
-      <input type="text" id="wsUrl" value="ws://localhost:8765" spellcheck="false" />
+      <input type="text" id="wsUrl" value="ws://localhost:9765" spellcheck="false" />
       <button class="btn-connect" id="btnConnect" onclick="toggleConnection()">Connect</button>
     </div>
     <div class="status-bar">
@@ -691,7 +691,7 @@ updateMeters();
 
 // Set default URL based on page location
 if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-  $wsUrl.value = `ws://${location.hostname}:8765`;
+  $wsUrl.value = `ws://${location.hostname}:9765`;
 }
 
 log('Ready. Enter WebSocket URL and click Connect.');
