@@ -42,6 +42,7 @@ Add the Lock-In MCP server (create the file if it doesn't exist):
       "cwd": "/full/path/to/cursor-tts/lock-in",
       "env": {
         "PYTHONPATH": "/full/path/to/cursor-tts/lock-in",
+        "MCP_TRANSPORT": "stdio",
         "CARTESIA_API_KEY": "your_cartesia_api_key",
         "ANTHROPIC_API_KEY": "your_anthropic_api_key"
       }
