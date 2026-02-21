@@ -18,7 +18,8 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV MCP_TRANSPORT=streamable-http
-ENV MCP_SERVER_PORT=8000
+# PORT is the standard cloud env var; platforms like Manufact inject it at runtime
+ENV PORT=8000
 
 EXPOSE 8000
 

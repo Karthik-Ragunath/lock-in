@@ -65,13 +65,16 @@ _current_session_id: Optional[str] = None
 # ---------------------------------------------------------------------------
 # MCP Server (using mcp-use SDK)
 # ---------------------------------------------------------------------------
+# Use PORT (standard cloud env var) > MCP_SERVER_PORT > 8000
+_server_port = int(os.environ.get("PORT", os.environ.get("MCP_SERVER_PORT", "8000")))
+
 mcp_server = MCPServer(
     name="lock-in",
     version="1.0.0",
     instructions="Lock-In: Live voice narration of AI agent reasoning. "
                  "Call stream_reasoning_step() to narrate your thinking process.",
     host="0.0.0.0",
-    port=8000,
+    port=_server_port,
     debug=True,  # Enable debug endpoints
 )
 
@@ -381,8 +384,8 @@ def main():
         logger.add(str(log_file), rotation="10 MB", level="DEBUG")
         logger.info("Starting Lock-In MCP server (mcp-use SDK)...")
 
-    # Get port from environment or default to 8000
-    port = int(os.environ.get("MCP_SERVER_PORT", "8000"))
+    # Use PORT (standard cloud env var) > MCP_SERVER_PORT > 8000
+    port = int(os.environ.get("PORT", os.environ.get("MCP_SERVER_PORT", "8000")))
     
     if transport == "stdio":
         # Run silently in stdio mode - no output except JSON-RPC
