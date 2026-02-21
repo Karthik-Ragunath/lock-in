@@ -94,8 +94,9 @@ async def _get_voice_ws() -> Optional[websockets.ClientConnection]:
                 _voice_ws = None
 
         try:
-            _voice_ws = await websockets.connect("ws://localhost:8766")
-            logger.info("Connected to voice agent MCP bridge")
+            mcp_ws_port = os.environ.get("MCP_WS_PORT", "8766")
+            _voice_ws = await websockets.connect(f"ws://localhost:{mcp_ws_port}")
+            logger.info(f"Connected to voice agent MCP bridge on port {mcp_ws_port}")
             asyncio.create_task(_listen_for_questions())
             return _voice_ws
         except Exception as e:
