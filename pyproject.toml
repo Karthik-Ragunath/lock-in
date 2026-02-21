@@ -1,3 +1,38 @@
+[project]
+name = "lock-in"
+version = "1.0.0"
+description = "Lock-In: Live voice narration of AI agent reasoning via MCP"
+requires-python = ">=3.10"
+
+dependencies = [
+    "pipecat-ai[cartesia,anthropic,silero,websocket]>=0.0.90",
+    "anthropic>=0.39.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "websockets>=12.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "mcp-use>=1.6.0",
+    "loguru>=0.7.0",
+    "aiofiles>=23.0.0",
+    "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 filterwarnings = [
