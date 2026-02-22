@@ -74,7 +74,7 @@ NarrationInjector          Passes through incoming frames unchanged
        │                   and pushes TextFrames downstream (towards TTS)
        ▼
 CartesiaTTSService         Converts TextFrames to audio via Cartesia API
-       │                   Model: sonic-3, 24kHz, PCM s16le
+       │                   Model: sonic-3, 44.1kHz, PCM s16le
        ▼
 transport.output()         Sends audio frames to user's speakers (port 8765)
 ```

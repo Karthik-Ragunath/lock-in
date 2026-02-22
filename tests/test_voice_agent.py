@@ -18,7 +18,7 @@ class TestSettings:
         settings = Settings()
         assert settings.tts_model == "sonic-3"
         assert settings.stt_model == "ink-whisper"
-        assert settings.tts_sample_rate == 24000
+        assert settings.tts_sample_rate == 44100
         assert settings.stt_sample_rate == 16000
         assert settings.ws_port == 8765
         assert settings.mcp_ws_port == 8766

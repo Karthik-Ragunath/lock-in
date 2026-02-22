@@ -262,7 +262,7 @@ Set these in `.env` (see `.env.example` for template):
 | `CARTESIA_VOICE_ID` | `a0e99841-...` | Cartesia voice to use |
 | `TTS_MODEL` | `sonic-3` | TTS model |
 | `STT_MODEL` | `ink-whisper` | STT model |
-| `TTS_SAMPLE_RATE` | `24000` | TTS audio sample rate |
+| `TTS_SAMPLE_RATE` | `44100` | TTS audio sample rate (CD quality) |
 | `STT_SAMPLE_RATE` | `16000` | STT audio sample rate |
 
 ### Server Configuration
