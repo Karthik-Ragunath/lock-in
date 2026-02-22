@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Set
 
 from loguru import logger
 
-from .models import ConversationEntry, ReasoningStep, SessionContext
+from .models import ConversationEntry, NarrationText, ReasoningStep, SessionContext
 
 
 class ContextManager:
@@ -81,6 +81,98 @@ class ContextManager:
                 )
             else:
                 logger.warning(f"Session not found: {session_id}")
+
+    def add_narration_text(
+        self, session_id: str, step_number: int, text: str, thinking_type: str = "analyzing"
+    ) -> None:
+        """Store a generated narration text for the session."""
+        with self._lock:
+            if session_id in self.sessions:
+                entry = NarrationText(
+                    step_number=step_number,
+                    narration_text=text,
+                    thinking_type=thinking_type,
+                    timestamp=datetime.now(),
+                )
+                self.sessions[session_id].narration_texts.append(entry)
+            else:
+                logger.warning(f"Session not found: {session_id}")
+
+    def get_narration_texts(self, session_id: str, last_n: Optional[int] = None) -> List[dict]:
+        """Get narration texts, optionally limited to the last N entries."""
+        with self._lock:
+            if session_id not in self.sessions:
+                return []
+            texts = self.sessions[session_id].narration_texts
+            if last_n is not None:
+                texts = texts[-last_n:]
+            return [
+                {
+                    "step_number": t.step_number,
+                    "narration_text": t.narration_text,
+                    "thinking_type": t.thinking_type,
+                    "timestamp": t.timestamp.isoformat(),
+                }
+                for t in texts
+            ]
+
+    def set_paused(self, session_id: str, paused: bool) -> None:
+        """Set the pause state for a session."""
+        with self._lock:
+            if session_id in self.sessions:
+                self.sessions[session_id].is_paused = paused
+
+    def get_session_status(self, session_id: str) -> dict:
+        """Get a status snapshot of the session for the widget."""
+        with self._lock:
+            if session_id not in self.sessions:
+                return {"active": False}
+            session = self.sessions[session_id]
+            return {
+                "active": session.is_active,
+                "paused": session.is_paused,
+                "current_step": session.current_step,
+                "total_steps": len(session.reasoning_steps),
+                "total_narrations": len(session.narration_texts),
+                "duration_seconds": (datetime.now() - session.started_at).total_seconds(),
+            }
+
+    def get_full_session_data(self, session_id: str) -> dict:
+        """Get all steps and narrations for summary generation."""
+        with self._lock:
+            if session_id not in self.sessions:
+                return {}
+            session = self.sessions[session_id]
+
+            all_files: Set[str] = set()
+            for step in session.reasoning_steps:
+                for f in step.files_involved:
+                    all_files.add(f)
+
+            return {
+                "session_id": session_id,
+                "current_step": session.current_step,
+                "total_steps": len(session.reasoning_steps),
+                "duration_seconds": (datetime.now() - session.started_at).total_seconds(),
+                "files_involved": sorted(all_files),
+                "steps": [
+                    {
+                        "step_number": s.step_number,
+                        "description": s.step_description,
+                        "type": s.thinking_type,
+                        "files": s.files_involved,
+                    }
+                    for s in session.reasoning_steps
+                ],
+                "narrations": [
+                    {
+                        "step_number": n.step_number,
+                        "text": n.narration_text,
+                        "type": n.thinking_type,
+                    }
+                    for n in session.narration_texts
+                ],
+            }
 
     def get_context_for_question(self, session_id: str) -> dict:
         """

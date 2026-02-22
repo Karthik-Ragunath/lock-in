@@ -12,6 +12,7 @@ pydantic-settings>=2.5.0
 
 # MCP (using mcp-use SDK for hackathon compatibility)
 mcp-use>=1.6.0
+mcp-ui-server>=0.1.0
 
 # Logging
 loguru>=0.7.0

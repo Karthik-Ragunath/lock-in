@@ -88,6 +88,25 @@ class LockInVoiceAgent:
                             if text:
                                 await self.speak(text)
 
+                        elif msg_type == "pause":
+                            await self.pause_narration()
+                            await websocket.send(json.dumps({
+                                "type": "status",
+                                "payload": {"paused": True},
+                            }))
+
+                        elif msg_type == "resume":
+                            await self.resume_narration()
+                            await websocket.send(json.dumps({
+                                "type": "status",
+                                "payload": {"paused": False},
+                            }))
+
+                        elif msg_type == "rewind":
+                            text = payload.get("narration_text", "")
+                            if text:
+                                await self.handle_narration_step_text(text)
+
                         elif msg_type == "session_end":
                             logger.info("MCP session ended")
                             break

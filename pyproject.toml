@@ -14,6 +14,7 @@ dependencies = [
     "pydantic>=2.9.0",
     "pydantic-settings>=2.5.0",
     "mcp-use>=1.6.0",
+    "mcp-ui-server>=0.1.0",
     "loguru>=0.7.0",
     "aiofiles>=23.0.0",
     "tenacity>=8.2.0",

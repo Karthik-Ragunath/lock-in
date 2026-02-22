@@ -46,13 +46,27 @@ class ConversationEntry(BaseModel):
         json_encoders = {datetime: lambda v: v.isoformat()}
 
 
+class NarrationText(BaseModel):
+    """A single narration text generated for a reasoning step."""
+
+    step_number: int
+    narration_text: str
+    thinking_type: str = "analyzing"
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+    class Config:
+        json_encoders = {datetime: lambda v: v.isoformat()}
+
+
 class SessionContext(BaseModel):
     """Full context for an active coding session."""
 
     session_id: str = Field(..., description="Unique session identifier")
     reasoning_steps: List[ReasoningStep] = Field(default_factory=list)
+    narration_texts: List[NarrationText] = Field(default_factory=list)
     conversation_history: List[ConversationEntry] = Field(default_factory=list)
     current_step: Optional[int] = Field(None, description="Current step number")
+    is_paused: bool = Field(False, description="Whether narration is currently paused")
     started_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = Field(True, description="Whether the session is still active")
 
@@ -87,6 +101,9 @@ class WebSocketMessage(BaseModel):
         "question",
         "answer",
         "status",
+        "pause",
+        "resume",
+        "rewind",
         "session_start",
         "session_end",
         "error",

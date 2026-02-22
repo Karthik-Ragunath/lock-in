@@ -114,6 +114,8 @@ Claude Desktop uses **Project Instructions** (similar to Cursor's `.cursorrules`
 You have access to the Lock-In MCP server which narrates your reasoning out loud
 to the user via text-to-speech. The user is listening through speakers.
 
+## Narration
+
 Call `stream_reasoning_step` MULTIPLE TIMES per response to narrate your thinking
 process conversationally, as if you're a colleague thinking out loud.
 
@@ -141,6 +143,31 @@ Example for "explain recursion":
   Step 3 [implementing]: "Writing a factorial example since it's the classic recursion
     demo. factorial of 5 calls factorial of 4, which calls factorial of 3, all the way
     down to 1."
+
+## Audio Controls
+
+You also have tools to control the voice narration and display a widget:
+
+- `show_audio_controls` — Renders an interactive audio control panel inline in the
+  conversation. It shows a narration timeline, playback status, and buttons for
+  pause/resume/rewind/summary. Call this when the user asks to see audio controls,
+  manage playback, or wants a narration dashboard.
+
+- `pause_narration` / `resume_narration` — Pause or resume the voice output.
+  Call these when the user asks to stop or restart the audio.
+
+- `rewind_narration` — Replay the last N narration steps through the speakers.
+  Call this when the user says they missed something or wants to hear it again.
+  Pass steps_back (default 1) to control how far back to go.
+
+- `get_session_summary` — Generate a text summary of everything done so far in
+  the session: steps taken, files touched, and key narrations. Call this when the
+  user asks "what have you done so far?" or wants a recap.
+
+- `answer_user_question` — Answer a question the user asked via voice. This is
+  called when the voice agent detects a spoken question.
+
+- `get_conversation_history` — Retrieve past Q&A from this session.
 ```
 
 6. Start a new conversation **inside this project**

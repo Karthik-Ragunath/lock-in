@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     cartesia_voice_id: str = "a33f7a4c-100f-41cf-a1fd-5822e8fc253f"  # Upbeat voice
     tts_model: str = "sonic-3"
     stt_model: str = "ink-whisper"
-    tts_sample_rate: int = 24000
+    tts_sample_rate: int = 44100  # CD quality - recommended for clean audio
     stt_sample_rate: int = 16000
 
     # WebSocket Settings

@@ -45,6 +45,7 @@ if _transport == "stdio":
 from .context_manager import ContextManager
 from .models import ReasoningStep, WebSocketMessage
 from .narration_generator import NarrationGenerator
+from .widget_html import build_widget_html
 
 # ---------------------------------------------------------------------------
 # Globals shared across MCP tool calls
@@ -211,6 +212,9 @@ async def stream_reasoning_step(
 
     narration_text = await narration_generator.generate_narration(step, previous_steps)
 
+    # Store narration text for rewind / summary
+    context_manager.add_narration_text(session_id, step_number, narration_text, thinking_type)
+
     # Send narration to voice agent
     ws_msg = WebSocketMessage(
         type="narration",
@@ -307,6 +311,247 @@ async def get_conversation_history() -> List[dict]:
     history = context_manager.get_conversation_history(session_id)
     logger.info(f"Returning {len(history)} conversation entries")
     return history
+
+
+# ---------------------------------------------------------------------------
+# Audio Control Tools (MCP Apps widget + backend)
+# ---------------------------------------------------------------------------
+_WIDGET_RESOURCE_URI = "ui://lock-in/audio-controls.html"
+_WIDGET_RESOURCE_URI_LEGACY = "ui://lock-in/audio-controls-legacy.html"
+
+
+@mcp_server.resource(
+    _WIDGET_RESOURCE_URI,
+    name="audio-controls",
+    description="Lock-In interactive audio control widget",
+    mime_type="text/html;profile=mcp-app",
+    meta={
+        "ui": {
+            "prefersBorder": True,
+            "widgetDescription": "Interactive audio controls for narration playback.",
+        },
+        "openai/widgetDescription": "Interactive audio controls for narration playback.",
+        "openai/widgetPrefersBorder": True,
+    },
+)
+async def audio_controls_resource() -> str:
+    """Serve widget HTML content in MCP Apps resource format."""
+    session_id = _ensure_session()
+    status = context_manager.get_session_status(session_id)
+    narrations = context_manager.get_narration_texts(session_id)
+    html = build_widget_html(status=status, narrations=narrations)
+    return html
+
+
+@mcp_server.resource(
+    _WIDGET_RESOURCE_URI_LEGACY,
+    name="audio-controls-legacy",
+    description="Lock-In interactive audio control widget (legacy host compatibility).",
+    mime_type="text/html",
+)
+async def audio_controls_resource_legacy() -> str:
+    """Serve widget HTML for hosts that still expect plain text/html."""
+    session_id = _ensure_session()
+    status = context_manager.get_session_status(session_id)
+    narrations = context_manager.get_narration_texts(session_id)
+    html = build_widget_html(status=status, narrations=narrations)
+    return html
+
+
+@mcp_server.tool(
+    name="show_audio_controls",
+    description="Display the Lock-In audio control widget with pause, rewind, "
+                "and summary controls. Renders inline in the conversation.",
+    meta={
+        "ui": {"resourceUri": _WIDGET_RESOURCE_URI},
+        # Backward-compatible flat key used by some hosts.
+        "ui/resourceUri": _WIDGET_RESOURCE_URI,
+        # ChatGPT/Apps-SDK style key used by some clients and bridges.
+        "openai/outputTemplate": _WIDGET_RESOURCE_URI_LEGACY,
+        "openai/toolInvocation/invoking": "Loading audio controls...",
+        "openai/toolInvocation/invoked": "Audio controls ready.",
+    },
+    structured_output=False,
+)
+async def show_audio_controls() -> str:
+    """
+    Render the Lock-In audio control widget as an MCP App.
+
+    The host fetches the ui:// resource and renders it in a sandboxed iframe
+    with playback controls and narration timeline.
+    """
+    session_id = _ensure_session()
+    status = context_manager.get_session_status(session_id)
+    logger.info(f"Rendering audio control widget (session {session_id[:8]}...)")
+
+    return (
+        f"Audio controls widget displayed. "
+        f"Session has {status.get('total_steps', 0)} steps, "
+        f"{'paused' if status.get('paused') else 'playing'}."
+    )
+
+
+@mcp_server.tool(
+    name="pause_narration",
+    description="Pause voice narration playback. The agent keeps working but "
+                "narration is silenced until resumed.",
+)
+async def pause_narration() -> dict:
+    """Pause the voice agent's narration output."""
+    session_id = _ensure_session()
+    context_manager.set_paused(session_id, True)
+
+    ws_msg = WebSocketMessage(
+        type="pause",
+        payload={},
+        session_id=session_id,
+    )
+    sent = await _send_to_voice_agent(ws_msg)
+    logger.info("Narration paused")
+
+    return {
+        "status": "paused",
+        "paused": True,
+        "voice_agent_notified": sent,
+    }
+
+
+@mcp_server.tool(
+    name="resume_narration",
+    description="Resume voice narration playback after a pause.",
+)
+async def resume_narration() -> dict:
+    """Resume the voice agent's narration output."""
+    session_id = _ensure_session()
+    context_manager.set_paused(session_id, False)
+
+    ws_msg = WebSocketMessage(
+        type="resume",
+        payload={},
+        session_id=session_id,
+    )
+    sent = await _send_to_voice_agent(ws_msg)
+    logger.info("Narration resumed")
+
+    return {
+        "status": "playing",
+        "paused": False,
+        "voice_agent_notified": sent,
+    }
+
+
+@mcp_server.tool(
+    name="rewind_narration",
+    description="Replay the last N narration steps through the voice agent. "
+                "Useful when the user missed something.",
+)
+async def rewind_narration(
+    steps_back: Annotated[int, Field(description="Number of steps to replay")] = 1,
+) -> dict:
+    """
+    Replay recent narration steps by re-sending them to the voice agent.
+
+    Args:
+        steps_back: How many past narration steps to replay (default 1).
+
+    Returns:
+        Dict with the replayed narrations and current timeline.
+    """
+    session_id = _ensure_session()
+    steps_back = max(1, min(steps_back, 10))
+    narrations = context_manager.get_narration_texts(session_id, last_n=steps_back)
+
+    replayed = []
+    for n in narrations:
+        ws_msg = WebSocketMessage(
+            type="rewind",
+            payload={
+                "narration_text": n["narration_text"],
+                "step_number": n["step_number"],
+            },
+            session_id=session_id,
+        )
+        sent = await _send_to_voice_agent(ws_msg)
+        replayed.append({**n, "sent": sent})
+
+    all_narrations = context_manager.get_narration_texts(session_id)
+    logger.info(f"Rewound {len(replayed)} narration step(s)")
+
+    return {
+        "replayed_count": len(replayed),
+        "replayed_narrations": replayed,
+        "all_narrations": all_narrations,
+    }
+
+
+@mcp_server.tool(
+    name="get_session_summary",
+    description="Generate a plain-text summary of everything the agent has done "
+                "in the current session, including all reasoning steps and files touched.",
+)
+async def get_session_summary() -> dict:
+    """
+    Generate a summary of the current coding session.
+
+    Aggregates all reasoning steps, narrations, and files involved into a
+    concise human-readable summary.
+    """
+    session_id = _ensure_session()
+    data = context_manager.get_full_session_data(session_id)
+
+    if not data:
+        return {"summary": "No session data available yet."}
+
+    summary = _build_session_summary(data)
+    logger.info(f"Generated session summary ({len(summary)} chars)")
+
+    return {
+        "summary": summary,
+        "total_steps": data.get("total_steps", 0),
+        "files_involved": data.get("files_involved", []),
+        "duration_seconds": data.get("duration_seconds", 0),
+    }
+
+
+def _build_session_summary(data: dict) -> str:
+    """Build a human-readable session summary from full session data."""
+    steps = data.get("steps", [])
+    narrations = data.get("narrations", [])
+    files = data.get("files_involved", [])
+    duration = data.get("duration_seconds", 0)
+
+    parts = []
+    total = len(steps)
+    mins = int(duration // 60)
+    secs = int(duration % 60)
+
+    parts.append(
+        f"Session covered {total} step{'s' if total != 1 else ''} "
+        f"over {mins}m {secs}s."
+    )
+
+    if files:
+        parts.append(f"Files touched: {', '.join(files[:8])}" +
+                      ("..." if len(files) > 8 else "") + ".")
+
+    type_counts: dict[str, int] = {}
+    for s in steps:
+        t = s.get("type", "other")
+        type_counts[t] = type_counts.get(t, 0) + 1
+    if type_counts:
+        breakdown = ", ".join(f"{v} {k}" for k, v in type_counts.items())
+        parts.append(f"Breakdown: {breakdown}.")
+
+    if narrations:
+        parts.append("\nKey narrations:")
+        shown = narrations if len(narrations) <= 6 else (
+            narrations[:3] + narrations[-3:]
+        )
+        for n in shown:
+            text = n.get("text", "")[:120]
+            parts.append(f"  [{n.get('type', '?')}] {text}")
+
+    return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
